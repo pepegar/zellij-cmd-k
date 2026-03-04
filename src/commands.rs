@@ -5,8 +5,8 @@ use zellij_tile::prelude::*;
 #[derive(Debug, Clone)]
 pub enum Command {
     SwitchToTab { name: String, position: usize },
+    CloseTab { name: String, position: usize },
     NewTab,
-    RenameTab { position: usize, current_name: String },
     SwitchToPane {
         title: String,
         id: u32,
@@ -14,13 +14,13 @@ pub enum Command {
         is_plugin: bool,
         is_floating: bool,
     },
-    NewPaneTiled,
-    NewPaneFloating,
-    RenamePane {
+    ClosePane {
+        title: String,
         id: u32,
         is_plugin: bool,
-        current_title: String,
     },
+    NewPaneTiled,
+    NewPaneFloating,
     SwitchSession { name: String },
     EnterScrollMode,
     EnterSearchMode,
@@ -32,19 +32,21 @@ impl Command {
             Command::SwitchToTab { name, position } => {
                 format!("Switch to tab: {} ({})", name, position + 1)
             }
+            Command::CloseTab { name, position } => {
+                format!("Close tab: {} ({})", name, position + 1)
+            }
             Command::NewTab => "New tab".to_string(),
-            Command::RenameTab { current_name, .. } => format!("Rename tab: {}", current_name),
             Command::SwitchToPane {
                 title, is_floating, ..
             } => {
                 let kind = if *is_floating { "floating" } else { "tiled" };
                 format!("Switch to pane: {} [{}]", title, kind)
             }
+            Command::ClosePane { title, .. } => {
+                format!("Close pane: {}", title)
+            }
             Command::NewPaneTiled => "New pane (tiled)".to_string(),
             Command::NewPaneFloating => "New pane (floating)".to_string(),
-            Command::RenamePane { current_title, .. } => {
-                format!("Rename pane: {}", current_title)
-            }
             Command::SwitchSession { name } => format!("Go to session: {}", name),
             Command::EnterScrollMode => "Enter scroll mode".to_string(),
             Command::EnterSearchMode => "Enter search mode".to_string(),
@@ -53,11 +55,11 @@ impl Command {
 
     pub fn category(&self) -> &'static str {
         match self {
-            Command::SwitchToTab { .. } | Command::NewTab | Command::RenameTab { .. } => "Tab",
+            Command::SwitchToTab { .. } | Command::CloseTab { .. } | Command::NewTab => "Tab",
             Command::SwitchToPane { .. }
+            | Command::ClosePane { .. }
             | Command::NewPaneTiled
-            | Command::NewPaneFloating
-            | Command::RenamePane { .. } => "Pane",
+            | Command::NewPaneFloating => "Pane",
             Command::SwitchSession { .. } => "Session",
             Command::EnterScrollMode | Command::EnterSearchMode => "Mode",
         }
@@ -90,9 +92,9 @@ pub fn build_commands(
             name: tab.name.clone(),
             position: tab.position,
         });
-        commands.push(Command::RenameTab {
+        commands.push(Command::CloseTab {
+            name: tab.name.clone(),
             position: tab.position,
-            current_name: tab.name.clone(),
         });
     }
 
@@ -111,10 +113,10 @@ pub fn build_commands(
                     is_floating: pane.is_floating,
                 });
                 if !pane.is_plugin {
-                    commands.push(Command::RenamePane {
+                    commands.push(Command::ClosePane {
+                        title: pane.title.clone(),
                         id: pane.id,
-                        is_plugin: pane.is_plugin,
-                        current_title: pane.title.clone(),
+                        is_plugin: false,
                     });
                 }
             }

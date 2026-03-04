@@ -1,15 +1,8 @@
 use zellij_tile::prelude::*;
 
-use crate::state::{Mode, PendingAction, State};
+use crate::state::State;
 
 pub fn render(state: &State, rows: usize, cols: usize) {
-    match &state.mode {
-        Mode::Browse => render_browse(state, rows, cols),
-        Mode::TextInput(_) => render_text_input(state, rows, cols),
-    }
-}
-
-fn render_browse(state: &State, rows: usize, cols: usize) {
     // Row 0: search input
     // Row 1..rows-1: command list
     // Last row: hint bar
@@ -36,7 +29,8 @@ fn render_browse(state: &State, rows: usize, cols: usize) {
         return;
     }
 
-    let scroll_offset = compute_scroll_offset(state.selected_index, list_height, state.filtered_commands.len());
+    let scroll_offset =
+        compute_scroll_offset(state.selected_index, list_height, state.filtered_commands.len());
 
     let visible = state
         .filtered_commands
@@ -79,25 +73,6 @@ fn render_browse(state: &State, rows: usize, cols: usize) {
     // Hint bar
     let hint = Text::new(" Enter select | Esc close | Up/Down navigate");
     print_text_with_coordinates(hint, 0, hint_row, Some(cols), Some(1));
-}
-
-fn render_text_input(state: &State, rows: usize, cols: usize) {
-    let prompt_label = match &state.mode {
-        Mode::TextInput(action) => match action {
-            PendingAction::RenameTab { .. } => "Rename tab:",
-            PendingAction::RenamePane { .. } => "Rename pane:",
-        },
-        _ => return,
-    };
-
-    let title = Text::new(format!(" {}", prompt_label)).color_range(0, 1..1 + prompt_label.len());
-    print_text_with_coordinates(title, 0, 0, Some(cols), Some(1));
-
-    let input = Text::new(format!(" {}|", state.input_buffer));
-    print_text_with_coordinates(input, 0, 1, Some(cols), Some(1));
-
-    let hint = Text::new(" Enter confirm | Esc cancel");
-    print_text_with_coordinates(hint, 0, rows.saturating_sub(1), Some(cols), Some(1));
 }
 
 fn compute_scroll_offset(selected: usize, visible_height: usize, total: usize) -> usize {

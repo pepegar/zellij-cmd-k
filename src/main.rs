@@ -30,6 +30,11 @@ impl ZellijPlugin for State {
     fn update(&mut self, event: Event) -> bool {
         match event {
             Event::TabUpdate(tabs) => {
+                // Track which tab is currently focused so dismiss can restore it.
+                self.origin_tab_position = tabs
+                    .iter()
+                    .find(|t| t.active)
+                    .map(|t| t.position);
                 self.tabs = tabs;
                 self.refilter();
                 true

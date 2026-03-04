@@ -1,21 +1,12 @@
 use zellij_tile::prelude::*;
 
 use crate::commands::Command;
-use crate::state::{Mode, PendingAction, State};
+use crate::state::State;
 
 pub fn handle_key(state: &mut State, key: KeyWithModifier) -> bool {
-    match &state.mode {
-        Mode::Browse => handle_browse_key(state, key),
-        Mode::TextInput(_) => handle_text_input_key(state, key),
-    }
-}
-
-fn handle_browse_key(state: &mut State, key: KeyWithModifier) -> bool {
     match key.bare_key {
         BareKey::Esc => {
-            state.search_term.clear();
-            state.selected_index = 0;
-            hide_self();
+            dismiss(state);
             true
         }
         BareKey::Enter => {
@@ -57,59 +48,14 @@ fn handle_browse_key(state: &mut State, key: KeyWithModifier) -> bool {
     }
 }
 
-fn handle_text_input_key(state: &mut State, key: KeyWithModifier) -> bool {
-    match key.bare_key {
-        BareKey::Esc => {
-            state.mode = Mode::Browse;
-            state.input_buffer.clear();
-            true
-        }
-        BareKey::Enter => {
-            let input = state.input_buffer.clone();
-            if let Mode::TextInput(action) = &state.mode {
-                match action {
-                    PendingAction::RenameTab { tab_position } => {
-                        rename_tab(*tab_position as u32, &input);
-                    }
-                    PendingAction::RenamePane { pane_id, is_plugin } => {
-                        if *is_plugin {
-                            rename_plugin_pane(*pane_id, &input);
-                        } else {
-                            rename_terminal_pane(*pane_id, &input);
-                        }
-                    }
-                }
-            }
-            state.input_buffer.clear();
-            state.mode = Mode::Browse;
-            state.search_term.clear();
-            state.selected_index = 0;
-            hide_self();
-            true
-        }
-        BareKey::Backspace => {
-            state.input_buffer.pop();
-            true
-        }
-        BareKey::Char(c) => {
-            if !key.has_modifiers(&[KeyModifier::Ctrl])
-                && !key.has_modifiers(&[KeyModifier::Alt])
-            {
-                state.input_buffer.push(c);
-                true
-            } else {
-                false
-            }
-        }
-        _ => false,
-    }
-}
-
 fn execute_command(state: &mut State, command: &Command) {
     match command {
         Command::SwitchToTab { position, .. } => {
-            // switch_tab_to is 1-indexed, TabInfo.position is 0-indexed
             switch_tab_to(*position as u32 + 1);
+            dismiss(state);
+        }
+        Command::CloseTab { position, .. } => {
+            close_tab_with_index(*position);
             dismiss(state);
         }
         Command::SwitchToPane {
@@ -124,6 +70,14 @@ fn execute_command(state: &mut State, command: &Command) {
                 focus_plugin_pane(*id, *is_floating);
             } else {
                 focus_terminal_pane(*id, *is_floating);
+            }
+            dismiss(state);
+        }
+        Command::ClosePane { id, is_plugin, .. } => {
+            if *is_plugin {
+                close_plugin_pane(*id);
+            } else {
+                close_terminal_pane(*id);
             }
             dismiss(state);
         }
@@ -150,31 +104,15 @@ fn execute_command(state: &mut State, command: &Command) {
             dismiss(state);
             switch_to_input_mode(&InputMode::EnterSearch);
         }
-        // Commands that need secondary text input
-        Command::RenameTab {
-            position,
-            current_name,
-        } => {
-            state.mode = Mode::TextInput(PendingAction::RenameTab {
-                tab_position: *position as u32,
-            });
-            state.input_buffer = current_name.clone();
-        }
-        Command::RenamePane {
-            id,
-            is_plugin,
-            current_title,
-        } => {
-            state.mode = Mode::TextInput(PendingAction::RenamePane {
-                pane_id: *id,
-                is_plugin: *is_plugin,
-            });
-            state.input_buffer = current_title.clone();
-        }
     }
 }
 
 fn dismiss(state: &mut State) {
+    // Restore the tab that was focused before the plugin was shown,
+    // so that dismissing cmd-k is a noop (no accidental tab switch).
+    if let Some(pos) = state.origin_tab_position {
+        switch_tab_to(pos as u32 + 1);
+    }
     state.search_term.clear();
     state.selected_index = 0;
     hide_self();
