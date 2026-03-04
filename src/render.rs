@@ -1,0 +1,113 @@
+use zellij_tile::prelude::*;
+
+use crate::state::{Mode, PendingAction, State};
+
+pub fn render(state: &State, rows: usize, cols: usize) {
+    match &state.mode {
+        Mode::Browse => render_browse(state, rows, cols),
+        Mode::TextInput(_) => render_text_input(state, rows, cols),
+    }
+}
+
+fn render_browse(state: &State, rows: usize, cols: usize) {
+    // Row 0: search input
+    // Row 1..rows-1: command list
+    // Last row: hint bar
+
+    let search_display = if state.search_term.is_empty() {
+        " > Type to filter...".to_string()
+    } else {
+        format!(" > {}|", state.search_term)
+    };
+    let search_text = Text::new(&search_display).color_range(3, 0..2);
+    print_text_with_coordinates(search_text, 0, 0, Some(cols), Some(1));
+
+    let list_start = 1;
+    let hint_row = rows.saturating_sub(1);
+    let list_height = hint_row.saturating_sub(list_start);
+
+    if list_height == 0 || state.filtered_commands.is_empty() {
+        if state.filtered_commands.is_empty() && !state.search_term.is_empty() {
+            let no_match = Text::new(" No matches");
+            print_text_with_coordinates(no_match, 0, list_start, Some(cols), Some(1));
+        }
+        let hint = Text::new(" Esc close");
+        print_text_with_coordinates(hint, 0, hint_row, Some(cols), Some(1));
+        return;
+    }
+
+    let scroll_offset = compute_scroll_offset(state.selected_index, list_height, state.filtered_commands.len());
+
+    let visible = state
+        .filtered_commands
+        .iter()
+        .enumerate()
+        .skip(scroll_offset)
+        .take(list_height);
+
+    let mut items: Vec<NestedListItem> = Vec::new();
+
+    for (i, scored) in visible {
+        let category = scored.command.category();
+        let label = scored.command.label();
+        let display = format!("[{}] {}", category, label);
+
+        let mut item = NestedListItem::new(&display);
+
+        // Color the category bracket
+        let cat_end = category.len() + 2; // "[Category]"
+        item = item.color_range(2, 0..cat_end);
+
+        // Highlight fuzzy match indices (offset by category prefix length + 1 for space)
+        let prefix_len = cat_end + 1;
+        for &idx in &scored.match_indices {
+            let display_idx = prefix_len + idx;
+            if display_idx < display.len() {
+                item = item.color_indices(1, vec![display_idx]);
+            }
+        }
+
+        if i == state.selected_index {
+            item = item.selected();
+        }
+
+        items.push(item);
+    }
+
+    print_nested_list_with_coordinates(items, 0, list_start, Some(cols), Some(list_height));
+
+    // Hint bar
+    let hint = Text::new(" Enter select | Esc close | Up/Down navigate");
+    print_text_with_coordinates(hint, 0, hint_row, Some(cols), Some(1));
+}
+
+fn render_text_input(state: &State, rows: usize, cols: usize) {
+    let prompt_label = match &state.mode {
+        Mode::TextInput(action) => match action {
+            PendingAction::RenameTab { .. } => "Rename tab:",
+            PendingAction::RenamePane { .. } => "Rename pane:",
+        },
+        _ => return,
+    };
+
+    let title = Text::new(format!(" {}", prompt_label)).color_range(0, 1..1 + prompt_label.len());
+    print_text_with_coordinates(title, 0, 0, Some(cols), Some(1));
+
+    let input = Text::new(format!(" {}|", state.input_buffer));
+    print_text_with_coordinates(input, 0, 1, Some(cols), Some(1));
+
+    let hint = Text::new(" Enter confirm | Esc cancel");
+    print_text_with_coordinates(hint, 0, rows.saturating_sub(1), Some(cols), Some(1));
+}
+
+fn compute_scroll_offset(selected: usize, visible_height: usize, total: usize) -> usize {
+    if total <= visible_height {
+        return 0;
+    }
+    if selected < visible_height / 2 {
+        return 0;
+    }
+    let max_offset = total.saturating_sub(visible_height);
+    let ideal = selected.saturating_sub(visible_height / 2);
+    ideal.min(max_offset)
+}
