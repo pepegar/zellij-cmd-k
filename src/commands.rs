@@ -6,24 +6,10 @@ use zellij_tile::prelude::*;
 pub enum Command {
     SwitchToTab { name: String, position: usize },
     CloseTab { name: String, position: usize },
-    NewTab,
-    SwitchToPane {
-        title: String,
-        id: u32,
-        tab_position: usize,
-        is_plugin: bool,
-        is_floating: bool,
-    },
-    ClosePane {
-        title: String,
-        id: u32,
-        is_plugin: bool,
-    },
-    NewPaneTiled,
-    NewPaneFloating,
     SwitchSession { name: String },
     EnterScrollMode,
     EnterSearchMode,
+    ShowKeybindings,
 }
 
 impl Command {
@@ -35,33 +21,19 @@ impl Command {
             Command::CloseTab { name, position } => {
                 format!("Close tab: {} ({})", name, position + 1)
             }
-            Command::NewTab => "New tab".to_string(),
-            Command::SwitchToPane {
-                title, is_floating, ..
-            } => {
-                let kind = if *is_floating { "floating" } else { "tiled" };
-                format!("Switch to pane: {} [{}]", title, kind)
-            }
-            Command::ClosePane { title, .. } => {
-                format!("Close pane: {}", title)
-            }
-            Command::NewPaneTiled => "New pane (tiled)".to_string(),
-            Command::NewPaneFloating => "New pane (floating)".to_string(),
             Command::SwitchSession { name } => format!("Go to session: {}", name),
             Command::EnterScrollMode => "Enter scroll mode".to_string(),
             Command::EnterSearchMode => "Enter search mode".to_string(),
+            Command::ShowKeybindings => "Show all keybindings".to_string(),
         }
     }
 
     pub fn category(&self) -> &'static str {
         match self {
-            Command::SwitchToTab { .. } | Command::CloseTab { .. } | Command::NewTab => "Tab",
-            Command::SwitchToPane { .. }
-            | Command::ClosePane { .. }
-            | Command::NewPaneTiled
-            | Command::NewPaneFloating => "Pane",
+            Command::SwitchToTab { .. } | Command::CloseTab { .. } => "Tab",
             Command::SwitchSession { .. } => "Session",
             Command::EnterScrollMode | Command::EnterSearchMode => "Mode",
+            Command::ShowKeybindings => "Help",
         }
     }
 }
@@ -74,17 +46,15 @@ pub struct ScoredCommand {
 
 pub fn build_commands(
     tabs: &[TabInfo],
-    pane_manifest: &Option<PaneManifest>,
+    _pane_manifest: &Option<PaneManifest>,
     sessions: &[SessionInfo],
 ) -> Vec<Command> {
     let mut commands = Vec::new();
 
     // Static commands
-    commands.push(Command::NewTab);
-    commands.push(Command::NewPaneTiled);
-    commands.push(Command::NewPaneFloating);
     commands.push(Command::EnterScrollMode);
     commands.push(Command::EnterSearchMode);
+    commands.push(Command::ShowKeybindings);
 
     // Tabs
     for tab in tabs {
@@ -96,31 +66,6 @@ pub fn build_commands(
             name: tab.name.clone(),
             position: tab.position,
         });
-    }
-
-    // Panes
-    if let Some(manifest) = pane_manifest {
-        for (tab_pos, panes) in &manifest.panes {
-            for pane in panes {
-                if !pane.is_selectable || pane.is_suppressed {
-                    continue;
-                }
-                commands.push(Command::SwitchToPane {
-                    title: pane.title.clone(),
-                    id: pane.id,
-                    tab_position: *tab_pos,
-                    is_plugin: pane.is_plugin,
-                    is_floating: pane.is_floating,
-                });
-                if !pane.is_plugin {
-                    commands.push(Command::ClosePane {
-                        title: pane.title.clone(),
-                        id: pane.id,
-                        is_plugin: false,
-                    });
-                }
-            }
-        }
     }
 
     // Sessions (exclude current)

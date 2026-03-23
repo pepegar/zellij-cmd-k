@@ -4,12 +4,31 @@ use crate::commands::Command;
 use crate::state::State;
 
 pub fn handle_key(state: &mut State, key: KeyWithModifier) -> bool {
+    // '?' shortcut when search is empty → show keybindings
+    if let BareKey::Char('?') = key.bare_key {
+        if state.search_term.is_empty()
+            && !key.has_modifiers(&[KeyModifier::Ctrl])
+            && !key.has_modifiers(&[KeyModifier::Alt])
+        {
+            execute_command(state, &Command::ShowKeybindings);
+            return true;
+        }
+    }
+
     match key.bare_key {
         BareKey::Esc => {
-            dismiss(state);
+            if state.show_keybindings {
+                state.show_keybindings = false;
+                state.keybindings_scroll = 0;
+            } else {
+                dismiss(state);
+            }
             true
         }
         BareKey::Enter => {
+            if state.show_keybindings {
+                return true; // no-op in keybindings view
+            }
             if let Some(scored) = state.filtered_commands.get(state.selected_index) {
                 let cmd = scored.command.clone();
                 execute_command(state, &cmd);
@@ -17,11 +36,17 @@ pub fn handle_key(state: &mut State, key: KeyWithModifier) -> bool {
             true
         }
         BareKey::Up => {
-            state.selected_index = state.selected_index.saturating_sub(1);
+            if state.show_keybindings {
+                state.keybindings_scroll = state.keybindings_scroll.saturating_sub(1);
+            } else {
+                state.selected_index = state.selected_index.saturating_sub(1);
+            }
             true
         }
         BareKey::Down => {
-            if state.selected_index + 1 < state.filtered_commands.len() {
+            if state.show_keybindings {
+                state.keybindings_scroll += 1;
+            } else if state.selected_index + 1 < state.filtered_commands.len() {
                 state.selected_index += 1;
             }
             true
@@ -33,7 +58,16 @@ pub fn handle_key(state: &mut State, key: KeyWithModifier) -> bool {
             true
         }
         BareKey::Char(c) => {
-            if !key.has_modifiers(&[KeyModifier::Ctrl])
+            if c == '\n' {
+                // Enter can arrive as Char('\n') in some terminals
+                if !state.show_keybindings {
+                    if let Some(scored) = state.filtered_commands.get(state.selected_index) {
+                        let cmd = scored.command.clone();
+                        execute_command(state, &cmd);
+                    }
+                }
+                true
+            } else if !key.has_modifiers(&[KeyModifier::Ctrl])
                 && !key.has_modifiers(&[KeyModifier::Alt])
             {
                 state.search_term.push(c);
@@ -58,43 +92,9 @@ fn execute_command(state: &mut State, command: &Command) {
             close_tab_with_index(*position);
             close_self(state);
         }
-        Command::SwitchToPane {
-            id,
-            tab_position,
-            is_plugin,
-            is_floating,
-            ..
-        } => {
-            switch_tab_to(*tab_position as u32 + 1);
-            if *is_plugin {
-                focus_plugin_pane(*id, *is_floating);
-            } else {
-                focus_terminal_pane(*id, *is_floating);
-            }
-            close_self(state);
-        }
-        Command::ClosePane { id, is_plugin, .. } => {
-            if *is_plugin {
-                close_plugin_pane(*id);
-            } else {
-                close_terminal_pane(*id);
-            }
-            close_self(state);
-        }
-        Command::NewTab => {
-            new_tab(None::<&str>, None::<&str>);
-            close_self(state);
-        }
-        Command::NewPaneTiled => {
-            open_terminal(std::path::PathBuf::from("."));
-            close_self(state);
-        }
-        Command::NewPaneFloating => {
-            open_terminal_floating(std::path::PathBuf::from("."), None);
-            close_self(state);
-        }
         Command::SwitchSession { name } => {
             switch_session(Some(name.as_str()));
+            close_self(state);
         }
         Command::EnterScrollMode => {
             close_self(state);
@@ -103,6 +103,9 @@ fn execute_command(state: &mut State, command: &Command) {
         Command::EnterSearchMode => {
             close_self(state);
             switch_to_input_mode(&InputMode::EnterSearch);
+        }
+        Command::ShowKeybindings => {
+            state.show_keybindings = true;
         }
     }
 }

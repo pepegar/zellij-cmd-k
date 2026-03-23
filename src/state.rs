@@ -15,4 +15,10 @@ pub struct State {
 
     /// Tab that was focused when the plugin was last shown, so dismiss is a noop.
     pub origin_tab_position: Option<usize>,
+
+    /// When true, show the keybindings help screen instead of the command list.
+    pub show_keybindings: bool,
+
+    /// Scroll offset for the keybindings view.
+    pub keybindings_scroll: usize,
 }
