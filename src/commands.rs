@@ -7,6 +7,8 @@ pub enum Command {
     SwitchToTab { name: String, position: usize },
     CloseTab { name: String, position: usize },
     SwitchSession { name: String },
+    NewSession,
+    NewSessionPrompt,
     EnterScrollMode,
     EnterSearchMode,
     ShowKeybindings,
@@ -22,6 +24,8 @@ impl Command {
                 format!("Close tab: {} ({})", name, position + 1)
             }
             Command::SwitchSession { name } => format!("Go to session: {}", name),
+            Command::NewSession => "New session (auto-named)".to_string(),
+            Command::NewSessionPrompt => "New session (named)...".to_string(),
             Command::EnterScrollMode => "Enter scroll mode".to_string(),
             Command::EnterSearchMode => "Enter search mode".to_string(),
             Command::ShowKeybindings => "Show all keybindings".to_string(),
@@ -31,7 +35,9 @@ impl Command {
     pub fn category(&self) -> &'static str {
         match self {
             Command::SwitchToTab { .. } | Command::CloseTab { .. } => "Tab",
-            Command::SwitchSession { .. } => "Session",
+            Command::SwitchSession { .. }
+            | Command::NewSession
+            | Command::NewSessionPrompt => "Session",
             Command::EnterScrollMode | Command::EnterSearchMode => "Mode",
             Command::ShowKeybindings => "Help",
         }
@@ -52,6 +58,8 @@ pub fn build_commands(
     let mut commands = Vec::new();
 
     // Static commands
+    commands.push(Command::NewSession);
+    commands.push(Command::NewSessionPrompt);
     commands.push(Command::EnterScrollMode);
     commands.push(Command::EnterSearchMode);
     commands.push(Command::ShowKeybindings);

@@ -1,14 +1,17 @@
 use zellij_tile::prelude::*;
 use zellij_tile::prelude::actions::Action;
 
-use crate::state::State;
+use crate::state::{State, View};
 
 pub fn render(state: &State, rows: usize, cols: usize) {
-    if state.show_keybindings {
-        render_keybindings(state, rows, cols);
-        return;
+    match &state.view {
+        View::Keybindings { scroll } => render_keybindings(state, *scroll, rows, cols),
+        View::NewSessionPrompt { input } => render_new_session_prompt(input, rows, cols),
+        View::List => render_list(state, rows, cols),
     }
+}
 
+fn render_list(state: &State, rows: usize, cols: usize) {
     // Row 0: search input
     // Row 1..rows-1: command list
     // Last row: hint bar
@@ -93,8 +96,24 @@ fn compute_scroll_offset(selected: usize, visible_height: usize, total: usize) -
     ideal.min(max_offset)
 }
 
-fn render_keybindings(state: &State, rows: usize, cols: usize) {
-    let title = Text::new(" ⌨  Zellij Keybindings").color_range(3, 0..22);
+fn render_new_session_prompt(input: &str, rows: usize, cols: usize) {
+    let title = Text::new(" New session name:").color_range(3, 0..18);
+    print_text_with_coordinates(title, 0, 0, Some(cols), Some(1));
+
+    let input_display = format!(" > {}|", input);
+    let input_text = Text::new(&input_display).color_range(3, 0..2);
+    print_text_with_coordinates(input_text, 0, 1, Some(cols), Some(1));
+
+    let hint_empty = Text::new("   (empty = auto-named)");
+    print_text_with_coordinates(hint_empty, 0, 2, Some(cols), Some(1));
+
+    let hint_row = rows.saturating_sub(1);
+    let hint = Text::new(" Enter create | Esc back");
+    print_text_with_coordinates(hint, 0, hint_row, Some(cols), Some(1));
+}
+
+fn render_keybindings(state: &State, scroll: usize, rows: usize, cols: usize) {
+    let title = Text::new(" Zellij Keybindings").color_range(3, 0..19);
     print_text_with_coordinates(title, 0, 0, Some(cols), Some(1));
 
     let separator = Text::new(&"─".repeat(cols.min(60)));
@@ -108,7 +127,7 @@ fn render_keybindings(state: &State, rows: usize, cols: usize) {
 
     // Clamp scroll offset
     let max_scroll = bindings.len().saturating_sub(list_height);
-    let scroll = state.keybindings_scroll.min(max_scroll);
+    let scroll = scroll.min(max_scroll);
 
     let visible = bindings.iter().skip(scroll).take(list_height);
     let mut items: Vec<NestedListItem> = Vec::new();
