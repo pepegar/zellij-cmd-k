@@ -1,7 +1,7 @@
 ---
 title: Add session create and switch support to zellij-cmd-k
 type: feat
-status: active
+status: completed
 date: 2026-04-16
 ---
 
@@ -117,7 +117,7 @@ Key operations at each edge:
 
 ## Implementation Units
 
-- [ ] **Unit 1: Introduce `View` enum and collapse existing view flags**
+- [x] **Unit 1: Introduce `View` enum and collapse existing view flags**
 
 **Goal:** Replace `show_keybindings: bool` + `keybindings_scroll: usize` with a `View` enum so new prompt views don't introduce mutually-exclusive booleans.
 
@@ -152,7 +152,7 @@ Key operations at each edge:
 - All existing palette actions (switch tab, close tab, switch session, enter scroll/search mode, show keybindings, Esc to dismiss) work identically to before.
 - No references to `show_keybindings` or `keybindings_scroll` remain in the codebase.
 
-- [ ] **Unit 2: Add `Command::NewSession` (auto-named create)**
+- [x] **Unit 2: Add `Command::NewSession` (auto-named create)**
 
 **Goal:** One-Enter command that creates a fresh zellij session with an auto-generated name and switches to it.
 
@@ -183,7 +183,7 @@ Key operations at each edge:
 - Running the plugin, selecting the command, and observing a new session in the zellij session list.
 - `Ctrl+k` reopens the palette inside the new session; the new session is marked `is_current_session` and therefore filtered out of the `SwitchSession` list (existing logic in `build_commands` handles this).
 
-- [ ] **Unit 3: Add `Command::NewSessionPrompt` and the prompt view**
+- [x] **Unit 3: Add `Command::NewSessionPrompt` and the prompt view**
 
 **Goal:** From the list, users can pick "New session (named)..." to enter a text-input prompt, type a name, and create+switch to that session.
 
@@ -234,7 +234,7 @@ Key operations at each edge:
 - End-to-end manual run of each test scenario above inside a zellij instance with the built `.wasm` loaded.
 - No panic, no stuck views, `Esc` always provides a reversible exit from the prompt.
 
-- [ ] **Unit 4: Update keybindings hint and (optionally) README/docs**
+- [x] **Unit 4: Update keybindings hint and (optionally) README/docs**
 
 **Goal:** Reflect the new commands in user-facing hints and any documentation.
 
