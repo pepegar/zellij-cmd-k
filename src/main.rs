@@ -44,8 +44,9 @@ impl ZellijPlugin for State {
                 self.refilter();
                 true
             }
-            Event::SessionUpdate(sessions, _durations) => {
+            Event::SessionUpdate(sessions, resurrectable) => {
                 self.sessions = sessions;
+                self.resurrectable_sessions = resurrectable;
                 self.refilter();
                 true
             }
@@ -65,7 +66,12 @@ impl ZellijPlugin for State {
 
 impl State {
     pub fn refilter(&mut self) {
-        let all_commands = build_commands(&self.tabs, &self.pane_manifest, &self.sessions);
+        let all_commands = build_commands(
+            &self.tabs,
+            &self.pane_manifest,
+            &self.sessions,
+            &self.resurrectable_sessions,
+        );
         self.filtered_commands = filter_commands(&all_commands, &self.search_term);
         if self.selected_index >= self.filtered_commands.len() {
             self.selected_index = self.filtered_commands.len().saturating_sub(1);

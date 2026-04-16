@@ -147,7 +147,7 @@ fn execute_command(state: &mut State, command: &Command) {
             close_tab_with_index(*position);
             close_self(state);
         }
-        Command::SwitchSession { name } => {
+        Command::SwitchSession { name } | Command::ResumeSession { name } => {
             switch_session(Some(name.as_str()));
             close_self(state);
         }

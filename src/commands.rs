@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
 use zellij_tile::prelude::*;
@@ -7,6 +9,7 @@ pub enum Command {
     SwitchToTab { name: String, position: usize },
     CloseTab { name: String, position: usize },
     SwitchSession { name: String },
+    ResumeSession { name: String },
     NewSession,
     NewSessionPrompt,
     EnterScrollMode,
@@ -23,9 +26,10 @@ impl Command {
             Command::CloseTab { name, position } => {
                 format!("Close tab: {} ({})", name, position + 1)
             }
-            Command::SwitchSession { name } => format!("Go to session: {}", name),
+            Command::SwitchSession { name } => format!("Switch to session: {}", name),
+            Command::ResumeSession { name } => format!("Resume session: {}", name),
             Command::NewSession => "New session (auto-named)".to_string(),
-            Command::NewSessionPrompt => "New session (named)...".to_string(),
+            Command::NewSessionPrompt => "New or switch to session (by name)...".to_string(),
             Command::EnterScrollMode => "Enter scroll mode".to_string(),
             Command::EnterSearchMode => "Enter search mode".to_string(),
             Command::ShowKeybindings => "Show all keybindings".to_string(),
@@ -36,6 +40,7 @@ impl Command {
         match self {
             Command::SwitchToTab { .. } | Command::CloseTab { .. } => "Tab",
             Command::SwitchSession { .. }
+            | Command::ResumeSession { .. }
             | Command::NewSession
             | Command::NewSessionPrompt => "Session",
             Command::EnterScrollMode | Command::EnterSearchMode => "Mode",
@@ -54,6 +59,7 @@ pub fn build_commands(
     tabs: &[TabInfo],
     _pane_manifest: &Option<PaneManifest>,
     sessions: &[SessionInfo],
+    resurrectable_sessions: &[(String, Duration)],
 ) -> Vec<Command> {
     let mut commands = Vec::new();
 
@@ -76,13 +82,21 @@ pub fn build_commands(
         });
     }
 
-    // Sessions (exclude current)
+    // Live sessions (exclude current)
     for session in sessions {
         if !session.is_current_session {
             commands.push(Command::SwitchSession {
                 name: session.name.clone(),
             });
         }
+    }
+
+    // Resurrectable sessions (skip any that are also live)
+    for (name, _duration) in resurrectable_sessions {
+        if sessions.iter().any(|s| &s.name == name) {
+            continue;
+        }
+        commands.push(Command::ResumeSession { name: name.clone() });
     }
 
     commands

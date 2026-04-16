@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use zellij_tile::prelude::*;
 
 use crate::commands::ScoredCommand;
@@ -15,6 +17,7 @@ pub struct State {
     pub tabs: Vec<TabInfo>,
     pub pane_manifest: Option<PaneManifest>,
     pub sessions: Vec<SessionInfo>,
+    pub resurrectable_sessions: Vec<(String, Duration)>,
     pub mode_info: Option<ModeInfo>,
 
     pub search_term: String,
