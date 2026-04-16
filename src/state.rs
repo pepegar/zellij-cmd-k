@@ -10,6 +10,7 @@ pub enum View {
     List,
     Keybindings { scroll: usize },
     NewSessionPrompt { input: String },
+    RenameSessionPrompt { input: String },
 }
 
 #[derive(Default)]

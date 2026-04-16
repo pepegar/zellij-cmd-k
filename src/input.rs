@@ -4,10 +4,13 @@ use crate::commands::Command;
 use crate::state::{State, View};
 
 pub fn handle_key(state: &mut State, key: KeyWithModifier) -> bool {
-    // While editing the new-session-name prompt, route *all* keys to that
+    // While editing a text-prompt view, route *all* keys to the prompt
     // handler so shortcuts like '?' don't leak through. Esc returns to List.
     if matches!(state.view, View::NewSessionPrompt { .. }) {
         return handle_key_new_session_prompt(state, key);
+    }
+    if matches!(state.view, View::RenameSessionPrompt { .. }) {
+        return handle_key_rename_session_prompt(state, key);
     }
 
     // '?' shortcut when search is empty → show keybindings
@@ -122,6 +125,50 @@ fn handle_key_new_session_prompt(state: &mut State, key: KeyWithModifier) -> boo
     }
 }
 
+fn handle_key_rename_session_prompt(state: &mut State, key: KeyWithModifier) -> bool {
+    match key.bare_key {
+        BareKey::Esc => {
+            state.view = View::List;
+            true
+        }
+        BareKey::Enter => {
+            submit_rename_session_prompt(state);
+            true
+        }
+        BareKey::Backspace => {
+            if let View::RenameSessionPrompt { input } = &mut state.view {
+                input.pop();
+            }
+            true
+        }
+        BareKey::Char(c) => {
+            if key.has_modifiers(&[KeyModifier::Ctrl]) || key.has_modifiers(&[KeyModifier::Alt]) {
+                false
+            } else if c == '\n' {
+                submit_rename_session_prompt(state);
+                true
+            } else {
+                if let View::RenameSessionPrompt { input } = &mut state.view {
+                    input.push(c);
+                }
+                true
+            }
+        }
+        _ => false,
+    }
+}
+
+fn submit_rename_session_prompt(state: &mut State) {
+    let View::RenameSessionPrompt { input } = &state.view else {
+        return;
+    };
+    let name = input.trim().to_string();
+    if !name.is_empty() {
+        rename_session(&name);
+    }
+    close_self(state);
+}
+
 fn submit_new_session_prompt(state: &mut State) {
     // Take an owned trimmed copy to end the immutable borrow on state.view
     // before the switch_session / close_self mutation below.
@@ -158,6 +205,17 @@ fn execute_command(state: &mut State, command: &Command) {
         Command::NewSessionPrompt => {
             state.view = View::NewSessionPrompt {
                 input: String::new(),
+            };
+        }
+        Command::RenameSessionPrompt => {
+            let current_name = state
+                .sessions
+                .iter()
+                .find(|s| s.is_current_session)
+                .map(|s| s.name.clone())
+                .unwrap_or_default();
+            state.view = View::RenameSessionPrompt {
+                input: current_name,
             };
         }
         Command::EnterScrollMode => {

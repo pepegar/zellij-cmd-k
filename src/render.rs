@@ -7,6 +7,7 @@ pub fn render(state: &State, rows: usize, cols: usize) {
     match &state.view {
         View::Keybindings { scroll } => render_keybindings(state, *scroll, rows, cols),
         View::NewSessionPrompt { input } => render_new_session_prompt(input, rows, cols),
+        View::RenameSessionPrompt { input } => render_rename_session_prompt(input, rows, cols),
         View::List => render_list(state, rows, cols),
     }
 }
@@ -110,6 +111,23 @@ fn render_new_session_prompt(input: &str, rows: usize, cols: usize) {
 
     let hint_row = rows.saturating_sub(1);
     let hint = Text::new(" Enter create | Esc back");
+    print_text_with_coordinates(hint, 0, hint_row, Some(cols), Some(1));
+}
+
+fn render_rename_session_prompt(input: &str, rows: usize, cols: usize) {
+    let title_str = " Rename session to:";
+    let title = Text::new(title_str).color_range(3, 0..title_str.len());
+    print_text_with_coordinates(title, 0, 0, Some(cols), Some(1));
+
+    let input_display = format!(" > {}|", input);
+    let input_text = Text::new(&input_display).color_range(3, 0..2);
+    print_text_with_coordinates(input_text, 0, 1, Some(cols), Some(1));
+
+    let hint_empty = Text::new("   (empty = cancel)");
+    print_text_with_coordinates(hint_empty, 0, 2, Some(cols), Some(1));
+
+    let hint_row = rows.saturating_sub(1);
+    let hint = Text::new(" Enter rename | Esc back");
     print_text_with_coordinates(hint, 0, hint_row, Some(cols), Some(1));
 }
 

@@ -12,6 +12,7 @@ pub enum Command {
     ResumeSession { name: String },
     NewSession,
     NewSessionPrompt,
+    RenameSessionPrompt,
     EnterScrollMode,
     EnterSearchMode,
     ShowKeybindings,
@@ -30,6 +31,7 @@ impl Command {
             Command::ResumeSession { name } => format!("Resume session: {}", name),
             Command::NewSession => "New session (auto-named)".to_string(),
             Command::NewSessionPrompt => "New or switch to session (by name)...".to_string(),
+            Command::RenameSessionPrompt => "Rename current session...".to_string(),
             Command::EnterScrollMode => "Enter scroll mode".to_string(),
             Command::EnterSearchMode => "Enter search mode".to_string(),
             Command::ShowKeybindings => "Show all keybindings".to_string(),
@@ -42,7 +44,8 @@ impl Command {
             Command::SwitchSession { .. }
             | Command::ResumeSession { .. }
             | Command::NewSession
-            | Command::NewSessionPrompt => "Session",
+            | Command::NewSessionPrompt
+            | Command::RenameSessionPrompt => "Session",
             Command::EnterScrollMode | Command::EnterSearchMode => "Mode",
             Command::ShowKeybindings => "Help",
         }
@@ -66,6 +69,7 @@ pub fn build_commands(
     // Static commands
     commands.push(Command::NewSession);
     commands.push(Command::NewSessionPrompt);
+    commands.push(Command::RenameSessionPrompt);
     commands.push(Command::EnterScrollMode);
     commands.push(Command::EnterSearchMode);
     commands.push(Command::ShowKeybindings);
