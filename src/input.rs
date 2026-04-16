@@ -1,14 +1,21 @@
 use zellij_tile::prelude::*;
 
 use crate::commands::Command;
-use crate::state::State;
+use crate::state::{State, View};
 
 pub fn handle_key(state: &mut State, key: KeyWithModifier) -> bool {
+    // While editing the new-session-name prompt, route *all* keys to that
+    // handler so shortcuts like '?' don't leak through. Esc returns to List.
+    if matches!(state.view, View::NewSessionPrompt { .. }) {
+        return handle_key_new_session_prompt(state, key);
+    }
+
     // '?' shortcut when search is empty → show keybindings
     if let BareKey::Char('?') = key.bare_key {
         if state.search_term.is_empty()
             && !key.has_modifiers(&[KeyModifier::Ctrl])
             && !key.has_modifiers(&[KeyModifier::Alt])
+            && matches!(state.view, View::List)
         {
             execute_command(state, &Command::ShowKeybindings);
             return true;
@@ -17,16 +24,15 @@ pub fn handle_key(state: &mut State, key: KeyWithModifier) -> bool {
 
     match key.bare_key {
         BareKey::Esc => {
-            if state.show_keybindings {
-                state.show_keybindings = false;
-                state.keybindings_scroll = 0;
+            if matches!(state.view, View::Keybindings { .. }) {
+                state.view = View::List;
             } else {
                 dismiss(state);
             }
             true
         }
         BareKey::Enter => {
-            if state.show_keybindings {
+            if matches!(state.view, View::Keybindings { .. }) {
                 return true; // no-op in keybindings view
             }
             if let Some(scored) = state.filtered_commands.get(state.selected_index) {
@@ -36,16 +42,16 @@ pub fn handle_key(state: &mut State, key: KeyWithModifier) -> bool {
             true
         }
         BareKey::Up => {
-            if state.show_keybindings {
-                state.keybindings_scroll = state.keybindings_scroll.saturating_sub(1);
+            if let View::Keybindings { scroll } = &mut state.view {
+                *scroll = scroll.saturating_sub(1);
             } else {
                 state.selected_index = state.selected_index.saturating_sub(1);
             }
             true
         }
         BareKey::Down => {
-            if state.show_keybindings {
-                state.keybindings_scroll += 1;
+            if let View::Keybindings { scroll } = &mut state.view {
+                *scroll += 1;
             } else if state.selected_index + 1 < state.filtered_commands.len() {
                 state.selected_index += 1;
             }
@@ -60,7 +66,7 @@ pub fn handle_key(state: &mut State, key: KeyWithModifier) -> bool {
         BareKey::Char(c) => {
             if c == '\n' {
                 // Enter can arrive as Char('\n') in some terminals
-                if !state.show_keybindings {
+                if !matches!(state.view, View::Keybindings { .. }) {
                     if let Some(scored) = state.filtered_commands.get(state.selected_index) {
                         let cmd = scored.command.clone();
                         execute_command(state, &cmd);
@@ -82,6 +88,55 @@ pub fn handle_key(state: &mut State, key: KeyWithModifier) -> bool {
     }
 }
 
+fn handle_key_new_session_prompt(state: &mut State, key: KeyWithModifier) -> bool {
+    match key.bare_key {
+        BareKey::Esc => {
+            // Back to the list view; preserve search_term so the user can resume filtering.
+            state.view = View::List;
+            true
+        }
+        BareKey::Enter => {
+            submit_new_session_prompt(state);
+            true
+        }
+        BareKey::Backspace => {
+            if let View::NewSessionPrompt { input } = &mut state.view {
+                input.pop();
+            }
+            true
+        }
+        BareKey::Char(c) => {
+            if key.has_modifiers(&[KeyModifier::Ctrl]) || key.has_modifiers(&[KeyModifier::Alt]) {
+                false
+            } else if c == '\n' {
+                submit_new_session_prompt(state);
+                true
+            } else {
+                if let View::NewSessionPrompt { input } = &mut state.view {
+                    input.push(c);
+                }
+                true
+            }
+        }
+        _ => false,
+    }
+}
+
+fn submit_new_session_prompt(state: &mut State) {
+    // Take an owned trimmed copy to end the immutable borrow on state.view
+    // before the switch_session / close_self mutation below.
+    let View::NewSessionPrompt { input } = &state.view else {
+        return;
+    };
+    let name = input.trim().to_string();
+    if name.is_empty() {
+        switch_session(None);
+    } else {
+        switch_session(Some(&name));
+    }
+    close_self(state);
+}
+
 fn execute_command(state: &mut State, command: &Command) {
     match command {
         Command::SwitchToTab { position, .. } => {
@@ -96,6 +151,15 @@ fn execute_command(state: &mut State, command: &Command) {
             switch_session(Some(name.as_str()));
             close_self(state);
         }
+        Command::NewSession => {
+            switch_session(None);
+            close_self(state);
+        }
+        Command::NewSessionPrompt => {
+            state.view = View::NewSessionPrompt {
+                input: String::new(),
+            };
+        }
         Command::EnterScrollMode => {
             close_self(state);
             switch_to_input_mode(&InputMode::Scroll);
@@ -105,7 +169,7 @@ fn execute_command(state: &mut State, command: &Command) {
             switch_to_input_mode(&InputMode::EnterSearch);
         }
         Command::ShowKeybindings => {
-            state.show_keybindings = true;
+            state.view = View::Keybindings { scroll: 0 };
         }
     }
 }
@@ -115,6 +179,7 @@ fn execute_command(state: &mut State, command: &Command) {
 fn close_self(state: &mut State) {
     state.search_term.clear();
     state.selected_index = 0;
+    state.view = View::List;
     hide_self();
 }
 
