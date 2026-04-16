@@ -4,7 +4,8 @@ use crate::commands::Command;
 use crate::state::{State, View};
 
 pub fn handle_key(state: &mut State, key: KeyWithModifier) -> bool {
-    // While editing the new-session-name prompt, route keys to that view.
+    // While editing the new-session-name prompt, route *all* keys to that
+    // handler so shortcuts like '?' don't leak through. Esc returns to List.
     if matches!(state.view, View::NewSessionPrompt { .. }) {
         return handle_key_new_session_prompt(state, key);
     }
@@ -105,18 +106,16 @@ fn handle_key_new_session_prompt(state: &mut State, key: KeyWithModifier) -> boo
             true
         }
         BareKey::Char(c) => {
-            if c == '\n' {
+            if key.has_modifiers(&[KeyModifier::Ctrl]) || key.has_modifiers(&[KeyModifier::Alt]) {
+                false
+            } else if c == '\n' {
                 submit_new_session_prompt(state);
                 true
-            } else if !key.has_modifiers(&[KeyModifier::Ctrl])
-                && !key.has_modifiers(&[KeyModifier::Alt])
-            {
+            } else {
                 if let View::NewSessionPrompt { input } = &mut state.view {
                     input.push(c);
                 }
                 true
-            } else {
-                false
             }
         }
         _ => false,
@@ -124,11 +123,12 @@ fn handle_key_new_session_prompt(state: &mut State, key: KeyWithModifier) -> boo
 }
 
 fn submit_new_session_prompt(state: &mut State) {
-    let name = if let View::NewSessionPrompt { input } = &state.view {
-        input.trim().to_string()
-    } else {
+    // Take an owned trimmed copy to end the immutable borrow on state.view
+    // before the switch_session / close_self mutation below.
+    let View::NewSessionPrompt { input } = &state.view else {
         return;
     };
+    let name = input.trim().to_string();
     if name.is_empty() {
         switch_session(None);
     } else {

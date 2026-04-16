@@ -2,17 +2,12 @@ use zellij_tile::prelude::*;
 
 use crate::commands::ScoredCommand;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum View {
+    #[default]
     List,
     Keybindings { scroll: usize },
     NewSessionPrompt { input: String },
-}
-
-impl Default for View {
-    fn default() -> Self {
-        View::List
-    }
 }
 
 #[derive(Default)]

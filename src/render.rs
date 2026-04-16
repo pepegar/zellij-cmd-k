@@ -97,7 +97,8 @@ fn compute_scroll_offset(selected: usize, visible_height: usize, total: usize) -
 }
 
 fn render_new_session_prompt(input: &str, rows: usize, cols: usize) {
-    let title = Text::new(" New session name:").color_range(3, 0..18);
+    let title_str = " New session name:";
+    let title = Text::new(title_str).color_range(3, 0..title_str.len());
     print_text_with_coordinates(title, 0, 0, Some(cols), Some(1));
 
     let input_display = format!(" > {}|", input);
@@ -113,7 +114,8 @@ fn render_new_session_prompt(input: &str, rows: usize, cols: usize) {
 }
 
 fn render_keybindings(state: &State, scroll: usize, rows: usize, cols: usize) {
-    let title = Text::new(" Zellij Keybindings").color_range(3, 0..19);
+    let title_str = " Zellij Keybindings";
+    let title = Text::new(title_str).color_range(3, 0..title_str.len());
     print_text_with_coordinates(title, 0, 0, Some(cols), Some(1));
 
     let separator = Text::new(&"─".repeat(cols.min(60)));
