@@ -48,15 +48,25 @@ pub fn handle_key(state: &mut State, key: KeyWithModifier) -> bool {
             if let View::Keybindings { scroll } = &mut state.view {
                 *scroll = scroll.saturating_sub(1);
             } else {
-                state.selected_index = state.selected_index.saturating_sub(1);
+                let len = state.filtered_commands.len();
+                if len > 0 {
+                    state.selected_index = if state.selected_index == 0 {
+                        len - 1
+                    } else {
+                        state.selected_index - 1
+                    };
+                }
             }
             true
         }
         BareKey::Down => {
             if let View::Keybindings { scroll } = &mut state.view {
                 *scroll += 1;
-            } else if state.selected_index + 1 < state.filtered_commands.len() {
-                state.selected_index += 1;
+            } else {
+                let len = state.filtered_commands.len();
+                if len > 0 {
+                    state.selected_index = (state.selected_index + 1) % len;
+                }
             }
             true
         }
