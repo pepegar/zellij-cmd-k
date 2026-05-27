@@ -3,13 +3,24 @@ use zellij_tile::prelude::actions::Action;
 
 use crate::state::{State, View};
 
+const GIT_HEAD_SHA: &str = env!("GIT_HEAD_SHA");
+
+const BODY_TOP: usize = 1;
+
 pub fn render(state: &State, rows: usize, cols: usize) {
+    render_header(cols);
     match &state.view {
         View::Keybindings { scroll } => render_keybindings(state, *scroll, rows, cols),
         View::NewSessionPrompt { input } => render_new_session_prompt(input, rows, cols),
         View::RenameSessionPrompt { input } => render_rename_session_prompt(input, rows, cols),
         View::List => render_list(state, rows, cols),
     }
+}
+
+fn render_header(cols: usize) {
+    let header = format!(" zellij-cmd-k @ {}", GIT_HEAD_SHA);
+    let text = Text::new(&header).color_range(2, 0..header.len());
+    print_text_with_coordinates(text, 0, 0, Some(cols), Some(1));
 }
 
 fn render_list(state: &State, rows: usize, cols: usize) {
@@ -23,9 +34,9 @@ fn render_list(state: &State, rows: usize, cols: usize) {
         format!(" > {}|", state.search_term)
     };
     let search_text = Text::new(&search_display).color_range(3, 0..2);
-    print_text_with_coordinates(search_text, 0, 0, Some(cols), Some(1));
+    print_text_with_coordinates(search_text, 0, BODY_TOP, Some(cols), Some(1));
 
-    let list_start = 1;
+    let list_start = BODY_TOP + 1;
     let hint_row = rows.saturating_sub(1);
     let list_height = hint_row.saturating_sub(list_start);
 
@@ -100,14 +111,14 @@ fn compute_scroll_offset(selected: usize, visible_height: usize, total: usize) -
 fn render_new_session_prompt(input: &str, rows: usize, cols: usize) {
     let title_str = " New session name:";
     let title = Text::new(title_str).color_range(3, 0..title_str.len());
-    print_text_with_coordinates(title, 0, 0, Some(cols), Some(1));
+    print_text_with_coordinates(title, 0, BODY_TOP, Some(cols), Some(1));
 
     let input_display = format!(" > {}|", input);
     let input_text = Text::new(&input_display).color_range(3, 0..2);
-    print_text_with_coordinates(input_text, 0, 1, Some(cols), Some(1));
+    print_text_with_coordinates(input_text, 0, BODY_TOP + 1, Some(cols), Some(1));
 
     let hint_empty = Text::new("   (empty = auto-named)");
-    print_text_with_coordinates(hint_empty, 0, 2, Some(cols), Some(1));
+    print_text_with_coordinates(hint_empty, 0, BODY_TOP + 2, Some(cols), Some(1));
 
     let hint_row = rows.saturating_sub(1);
     let hint = Text::new(" Enter create | Esc back");
@@ -117,14 +128,14 @@ fn render_new_session_prompt(input: &str, rows: usize, cols: usize) {
 fn render_rename_session_prompt(input: &str, rows: usize, cols: usize) {
     let title_str = " Rename session to:";
     let title = Text::new(title_str).color_range(3, 0..title_str.len());
-    print_text_with_coordinates(title, 0, 0, Some(cols), Some(1));
+    print_text_with_coordinates(title, 0, BODY_TOP, Some(cols), Some(1));
 
     let input_display = format!(" > {}|", input);
     let input_text = Text::new(&input_display).color_range(3, 0..2);
-    print_text_with_coordinates(input_text, 0, 1, Some(cols), Some(1));
+    print_text_with_coordinates(input_text, 0, BODY_TOP + 1, Some(cols), Some(1));
 
     let hint_empty = Text::new("   (empty = cancel)");
-    print_text_with_coordinates(hint_empty, 0, 2, Some(cols), Some(1));
+    print_text_with_coordinates(hint_empty, 0, BODY_TOP + 2, Some(cols), Some(1));
 
     let hint_row = rows.saturating_sub(1);
     let hint = Text::new(" Enter rename | Esc back");
@@ -134,13 +145,13 @@ fn render_rename_session_prompt(input: &str, rows: usize, cols: usize) {
 fn render_keybindings(state: &State, scroll: usize, rows: usize, cols: usize) {
     let title_str = " Zellij Keybindings";
     let title = Text::new(title_str).color_range(3, 0..title_str.len());
-    print_text_with_coordinates(title, 0, 0, Some(cols), Some(1));
+    print_text_with_coordinates(title, 0, BODY_TOP, Some(cols), Some(1));
 
     let separator = Text::new(&"─".repeat(cols.min(60)));
-    print_text_with_coordinates(separator, 0, 1, Some(cols), Some(1));
+    print_text_with_coordinates(separator, 0, BODY_TOP + 1, Some(cols), Some(1));
 
     let hint_row = rows.saturating_sub(1);
-    let list_start = 2;
+    let list_start = BODY_TOP + 2;
     let list_height = hint_row.saturating_sub(list_start);
 
     let bindings = collect_keybindings(state);
