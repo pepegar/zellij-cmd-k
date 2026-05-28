@@ -248,14 +248,12 @@ fn close_self(state: &mut State) {
     state.search_term.clear();
     state.selected_index = 0;
     state.view = View::List;
-    hide_self();
+    zellij_tile::shim::close_self();
 }
 
-/// Dismiss the plugin, restoring the tab that was focused before it was shown.
-/// Used when cancelling (Esc) so that opening and closing the plugin is a noop.
+/// Dismiss the plugin. With `close_self` the plugin pane is destroyed, so the
+/// next invocation launches fresh on whichever tab the user is on — no need to
+/// restore an origin tab.
 fn dismiss(state: &mut State) {
-    if let Some(pos) = state.origin_tab_position {
-        switch_tab_to(pos as u32 + 1);
-    }
     close_self(state);
 }
